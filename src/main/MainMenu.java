@@ -19,6 +19,7 @@ package main;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.io.IOException;
 
 import javax.swing.JButton;
@@ -87,6 +88,8 @@ public class MainMenu extends JFrame implements ActionListener {
 			main.showView(View.QUIZ_EDITOR);
 		} else if (e.getSource() == btnHostGame) {
 			JFileChooser jfc = new JFileChooser();
+			// Set default directory to project root.
+			jfc.setCurrentDirectory(new File(System.getProperty("user.dir")));
 			if (jfc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
 				try {
 					chosenQuiz = Quiz.read(jfc.getSelectedFile().getAbsolutePath());
