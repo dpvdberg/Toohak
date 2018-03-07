@@ -5,3 +5,6 @@
 bin
 Version History
 Unused Assets
+*.iml
+.idea/
+out/
