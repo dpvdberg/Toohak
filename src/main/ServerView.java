@@ -382,14 +382,14 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	 * @param clientHandler Relevant client handler
 	 */
 	public void addClientHandler(ClientHandler clientHandler) {
-		for (ClientHandler ch : clientArray) {
-			if (ch.getIP().equals(clientHandler.getIP())) {
-				clientHandler.send(NetworkMessages.userKicked);
-				clientHandler.send("Only one connection per machine");
-				clientHandler.stopRunning();
-				return;
-			}
-		}
+//		for (ClientHandler ch : clientArray) {
+//			if (ch.getIP().equals(clientHandler.getIP())) {
+//				clientHandler.send(NetworkMessages.userKicked);
+//				clientHandler.send("Only one connection per machine");
+//				clientHandler.stopRunning();
+//				return;
+//			}
+//		}
 		leaderboardModel.addPlayer(clientHandler.username, 0);
 		clientArray.add(clientHandler);
 		sendToClient(clientHandler.username, NetworkMessages.userAccepted);
@@ -427,8 +427,10 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 				answerCount[chosen]++;
 				if (currentQuestion.acceptAnswer(chosen)) {
 					wasCorrect.put(username, true);
+					receivableScore *= (double) timeRemaining / currentQuestion
+							.getTimeLimit();
 					leaderboardModel.changeScore(username, receivableScore);
-					receivableScore *= 0.9;
+					
 				}
 			} catch (NumberFormatException e) {
 			}
