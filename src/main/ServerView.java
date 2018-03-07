@@ -44,31 +44,21 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
-import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
-import javax.swing.JTable;
-import javax.swing.SwingConstants;
+import javax.swing.*;
 
 import backend.GameState;
 import backend.LeaderboardModel;
 import backend.PlayerFeedback;
-import backend.Question;
-import backend.Quiz;
+import internals.Session;
 import backend.Updatable;
 import backend.Updater;
+import internals.arithmetic.Boundry;
+import internals.arithmetic.NumberType;
+import internals.arithmetic.Operation;
+import internals.question.Question;
 import net.AcceptThread;
 import net.ClientHandler;
 import net.MessageHandler;
@@ -96,12 +86,12 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	public boolean isRunning = true;
 	private GameState currentState = GameState.WAITING_FOR_PLAYERS;
 
-	//quiz data
+	//session data
 	private LeaderboardModel leaderboardModel;
 	private JTable leaderboard;
 	private QuestionAnalysis qa;
 
-	private Quiz quiz;
+	private Session session;
 	private Question currentQuestion;
 	private int timeRemaining;
 	private int receivableScore;
@@ -124,7 +114,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	private JLabel lblB;
 	private JLabel lblC;
 	private JLabel lblD;
-	private JLabel[] answers;
+	private JTextField answer;
 
 	private JLabel lblTime;
 	private JButton btnNext;
@@ -188,7 +178,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 		lblD.setHorizontalAlignment(SwingConstants.CENTER);
 		panel_2.add(lblD);
 
-		answers = new JLabel[] { lblA, lblB, lblC, lblD };
+		answer = new JTextField("Text Field", 15);
 		
 		tab = new JTabbedPane();
 		getContentPane().add(tab, BorderLayout.CENTER);
@@ -256,12 +246,12 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 				kickSelectedUser();
 			}
 		});
-
-		try {
-			music = AudioSystem.getClip();
-		} catch (LineUnavailableException e) {
-			e.printStackTrace();
-		}
+//
+//		try {
+//			music = AudioSystem.getClip();
+//		} catch (LineUnavailableException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
 	/**
@@ -278,26 +268,38 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	 * @param sound Filename of sound
 	 */
 	private void loadSound(String sound) {
-		if (enableMusic.isSelected()) {
-			try {
-				music.open(AudioSystem.getAudioInputStream(ServerView.class.getResource("/sound/" + sound)));
-				music.start();
-				music.loop(Clip.LOOP_CONTINUOUSLY);
-				lastClip = sound;
-			} catch (LineUnavailableException | IOException | UnsupportedAudioFileException e) {
-				e.printStackTrace();
-			}
-		}
+//		if (enableMusic.isSelected()) {
+//			try {
+//				music.open(AudioSystem.getAudioInputStream(ServerView.class.getResource("/sound/" + sound)));
+//				music.start();
+//				music.loop(Clip.LOOP_CONTINUOUSLY);
+//				lastClip = sound;
+//			} catch (LineUnavailableException | IOException | UnsupportedAudioFileException e) {
+//				e.printStackTrace();
+//			}
+//		}
 	}
 
 	/**
 	 * Start hosting a new game
 	 * @param givenPort Port on which game should be hosted
-	 * @param givenQuiz Desired quiz for the game
 	 */
-	public void startServer(int givenPort, Quiz givenQuiz) {
-		quiz = givenQuiz;
-		lblQuizName.setText(quiz.quizName);
+	public void startServer(int givenPort) {
+	    // TODO: Change this...
+        Set<Operation> opTypes = new HashSet<>();
+        opTypes.add(Operation.ADD);
+        opTypes.add(Operation.SUBTRACT);
+
+	    session = new Session(
+	            "TEST",
+	            new internals.Category(
+                        new Boundry(2, 10),
+                        NumberType.INTEGER,
+                        opTypes,
+                        5
+                )
+        );
+
 		try {
 			lblCurrentQ.setText("IP: " + InetAddress.getLocalHost().getHostAddress());
 		} catch (UnknownHostException e) {
@@ -342,7 +344,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 		}
 		clientArray.clear();
 		clientArray = null;
-		music.close();
+//		music.close();
 		leaderboardModel.clear();
 		try {
 			serverSocket.close();
@@ -423,9 +425,8 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	public void handleMessage(String msg, String username) {
 		if (currentState == GameState.WAITING_FOR_ANSWERS) {
 			try {
-				int chosen = Integer.parseInt(msg);
-				answerCount[chosen]++;
-				if (currentQuestion.acceptAnswer(chosen)) {
+				double response = Double.parseDouble(msg);
+				if (currentQuestion.acceptAnswer(response)) {
 					wasCorrect.put(username, true);
 					leaderboardModel.changeScore(username, receivableScore);
 					receivableScore *= 0.9;
@@ -455,7 +456,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 		wasCorrect = new HashMap<String, Boolean>();
 		
 		if (enableQShuffle.isSelected()) {
-			quiz.shuffleQuestions();
+			//session.shuffleQuestions();
 		}
 		enableQShuffle.setEnabled(false);
 		
@@ -483,7 +484,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 	 * @return Whether the game is still in progress
 	 */
 	private boolean getNextQuestion() {
-		currentQuestion = quiz.nextQuestion();
+		currentQuestion = session.nextQuestion();
 		for (int i = 0; i < 4; i++) {
 			answerCount[i] = 0;
 		}
@@ -495,27 +496,23 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 		}
 		broadcastToClients(NetworkMessages.nextQ);
 		if (enableAShuffle.isSelected()) {
-			currentQuestion.shuffleAnswers();
+			//currentQuestion.shuffleAnswers();
 		}
-		broadcastToClients(currentQuestion.getSendableCopy());
-		lblCurrentQ.setText(currentQuestion.getQ());
-		int index = 0;
-		for (String ans : currentQuestion.getAnswers()) {
-			answers[index].setText(ans);
-			index++;
-		}
+		broadcastToClients(currentQuestion);
+		lblCurrentQ.setText(currentQuestion.toString());
+
 		answersReceived = 0;
 		timeRemaining = currentQuestion.getTimeLimit();
 		receivableScore = currentQuestion.getPoints();
 		lblTime.setText(Integer.toString(timeRemaining));
 		currentState = GameState.WAITING_FOR_ANSWERS;
 
-		music.close();
-		if (timeRemaining < 30) {
-			loadSound(qClips[timeRemaining / 5]);
-		} else {
-			loadSound(qClips[6]);
-		}
+//		music.close();
+//		if (timeRemaining < 30) {
+//			loadSound(qClips[timeRemaining / 5]);
+//		} else {
+//			loadSound(qClips[6]);
+//		}
 		return true;
 	}
 
@@ -525,7 +522,7 @@ public class ServerView extends JFrame implements MessageHandler, ActionListener
 		case WAITING_FOR_ANSWERS:
 			tab.setSelectedComponent(qa);
 			currentState = GameState.WAITING_FOR_NEXT_Q;
-			music.close();
+//			music.close();
 			broadcastToClients(NetworkMessages.timeup);
 			leaderboardModel.updateData();
 			Map<String, PlayerFeedback> feedback = leaderboardModel.getFeedback(wasCorrect, currentQuestion);

@@ -16,6 +16,8 @@
 
 package backend;
 
+import internals.question.Question;
+
 import java.io.Serializable;
 
 /**

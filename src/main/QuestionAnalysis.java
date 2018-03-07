@@ -1,11 +1,11 @@
 package main;
 
+import internals.question.Question;
+
 import java.awt.Color;
 import java.awt.Graphics;
 
 import javax.swing.JPanel;
-
-import backend.Question;
 
 /**
  * Custom-drawn view for drawing graphs showing player responses
@@ -59,17 +59,10 @@ public class QuestionAnalysis extends JPanel {
 		g.fillRect(200, 180, 300 * answerCount[3] / maxCount, 15);
 		
 		g.setColor(Color.BLACK);
-		g.drawString(question.getQ(), 25, 80);
+		g.drawString(question.toString(), 25, 80);
 		g.drawString("Answers", 40, 100);
 		
-		int y = 120;
-		int i = 0;
-		for (String ans : question.getAnswers()) {
-			boolean correct = question.acceptAnswer(i);
-			g.drawString((correct ? "->" : "") + ans, (correct ? 85 : 90), y + 10);
-			y += 20;
-			i++;
-		}
+
 	}
 
 }

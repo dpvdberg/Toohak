@@ -79,7 +79,7 @@ public class Main {
 			quizEditor.setVisible(true);
 			break;
 		case SERVER_MODE:
-			serverView.startServer(1616, mainMenu.getQuiz());
+			serverView.startServer(1616);
 			serverView.setVisible(true);
 			break;
 		case ABOUT_WINDOW:

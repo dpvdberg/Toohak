@@ -21,10 +21,8 @@ import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -33,18 +31,16 @@ import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 
-import backend.Question;
 import backend.QuestionListModel;
-import backend.Quiz;
+import internals.Session;
 
 /**
- * Quiz editor view in which users can create,
+ * Session editor view in which users can create,
  * save, and load quizzes.
  * @author Ale
  *
@@ -82,14 +78,14 @@ public class QuizEditor extends JFrame implements ActionListener {
 
 	private JFileChooser jfc = new JFileChooser();
 
-	private Quiz quiz;
+	private Session session;
 	private boolean modified = false;
 	private JTextField timeField;
 	private JButton btnEditQuestion;
 	private JTextField pointsField;
 
 	public QuizEditor() {
-		setTitle("Toohak Quiz Editor");
+		setTitle("Toohak Session Editor");
 		setBounds(100, 50, 800, 700);
 		getContentPane().setLayout(new GridLayout(0, 1, 0, 0));
 
@@ -105,7 +101,7 @@ public class QuizEditor extends JFrame implements ActionListener {
 		panel_11.add(panel);
 		panel.setLayout(new GridLayout(1, 0, 0, 0));
 
-		JLabel lblQuizName = new JLabel("Quiz Name");
+		JLabel lblQuizName = new JLabel("Session Name");
 		panel.add(lblQuizName);
 
 		nameField = new JTextField();
@@ -275,130 +271,130 @@ public class QuizEditor extends JFrame implements ActionListener {
 
 	@Override
 	public void actionPerformed(ActionEvent e) {
-		if (e.getSource() == btnLoad) {
-			// ask user to select a file and load the quiz
-			if (jfc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-				try {
-					quiz = Quiz.read(jfc.getSelectedFile().getAbsolutePath());
-					nameField.setText(quiz.quizName);
-					for (Question q : quiz.getQuestionList()) {
-						qlistModel.addQuestion(q);
-					}
-					modified = false;
-				} catch (ClassNotFoundException | IOException e1) {
-					JOptionPane.showMessageDialog(null, "Failed to load quiz");
-				}
-			}
-		} else if (e.getSource() == btnSave) {
-			// ask user for a save location and save the file
-			if (jfc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-				if (modified) {
-					quiz = new Quiz(nameField.getText(), qlistModel.getObjects());
-					modified = false;
-				}
-				try {
-					quiz.save(jfc.getSelectedFile().getAbsolutePath());
-				} catch (IOException e1) {
-					JOptionPane.showMessageDialog(null, "Failed to save quiz");
-				}
-			}
-		} else if (e.getSource() == btnAddQuestion) {
-			// obtain question data from UI
-			modified = true;
-			ArrayList<String> answers = new ArrayList<String>(4);
-			answers.add(ansA.getText());
-			answers.add(ansB.getText());
-			answers.add(ansC.getText());
-			answers.add(ansD.getText());
-			int answerCount = 0;
-			// question must contain at least two non-empty answers to be valid
-			boolean isValid = false;
-			for (String ans : answers) {
-				if (!ans.equals("")) {
-					answerCount++;
-					if (answerCount >= 2) {
-						isValid = true;
-						break;
-					}
-				}
-			}
-			if (!isValid) {
-				JOptionPane.showMessageDialog(null, "Questions need at least 2 answers", "Invalid question",
-						JOptionPane.ERROR_MESSAGE);
-				return;
-			}
-			// only non-empty answers can be correct for the question to be valid
-			// additionally, at least one answer must be correct
-			isValid = false;
-			boolean accepted[] = new boolean[] { aOK.isSelected(), bOK.isSelected(), cOK.isSelected(),
-					dOK.isSelected() };
-			for (int i = 0; i < 4; i++) {
-				if (accepted[i]) {
-					if (answers.get(i).equals("")) {
-						isValid = false;
-						break;
-					} else {
-						isValid = true;
-					}
-				}
-			}
-			if (!isValid) {
-				JOptionPane.showMessageDialog(null, "Question either has no correct answers or accepts an empty answer",
-						"Invalid question", JOptionPane.ERROR_MESSAGE);
-				return;
-			}
-			try {
-				// load image into question data and clear UI so next question can be entered
-				BufferedImage img = loadedImage == null ? null : ImageIO.read(loadedImage);
-				qlistModel.addQuestion(new Question(questionField.getText(), Integer.parseInt(timeField.getText()),
-						Integer.parseInt(pointsField.getText()), answers, accepted, img));
-				questionField.setText("");
-				timeField.setText("");
-				pointsField.setText("");
-				ansA.setText("");
-				ansB.setText("");
-				ansC.setText("");
-				ansD.setText("");
-				aOK.setSelected(false);
-				bOK.setSelected(false);
-				cOK.setSelected(false);
-				dOK.setSelected(false);
-				loadImage(null);
-			} catch (NumberFormatException | IOException e1) {
-				e1.printStackTrace();
-			}
-		} else if (e.getSource() == btnRemoveQuestion) {
-			removeSelectedQuestion();
-		} else if (e.getSource() == btnEditQuestion) {
-			// load question data into UI and remove from question list
-			int row = questionList.getSelectedRow();
-			if (row >= 0) {
-				Question q = qlistModel.getObjects().get(row);
-				ArrayList<String> answers = q.getAnswers();
-				questionField.setText(q.getQ());
-				ansA.setText(answers.get(0));
-				ansB.setText(answers.get(1));
-				ansC.setText(answers.get(2));
-				ansD.setText(answers.get(3));
-				timeField.setText(Integer.toString(q.getTimeLimit()));
-				pointsField.setText(Integer.toString(q.getPoints()));
-				aOK.setSelected(q.acceptAnswer(0));
-				bOK.setSelected(q.acceptAnswer(1));
-				cOK.setSelected(q.acceptAnswer(2));
-				dOK.setSelected(q.acceptAnswer(3));
-				removeSelectedQuestion();
-			}
-		} else if (e.getSource() == btnClearImage) {
-			// remove image from question
-			loadedImage = null;
-			loadImage(null);
-		} else if (e.getSource() == btnLoadImage) {
-			// load an image from file
-			if (jfc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-				loadedImage = jfc.getSelectedFile();
-				loadImage(loadedImage);
-			}
-		}
+//		if (e.getSource() == btnLoad) {
+//			// ask user to select a file and load the session
+//			if (jfc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+//				try {
+//					session = Session.read(jfc.getSelectedFile().getAbsolutePath());
+//					nameField.setText(session.quizName);
+//					for (Question q : session.getQuestionList()) {
+//						qlistModel.addQuestion(q);
+//					}
+//					modified = false;
+//				} catch (ClassNotFoundException | IOException e1) {
+//					JOptionPane.showMessageDialog(null, "Failed to load session");
+//				}
+//			}
+//		} else if (e.getSource() == btnSave) {
+//			// ask user for a save location and save the file
+//			if (jfc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+//				if (modified) {
+//					session = new Session(nameField.getText(), qlistModel.getObjects());
+//					modified = false;
+//				}
+//				try {
+//					session.save(jfc.getSelectedFile().getAbsolutePath());
+//				} catch (IOException e1) {
+//					JOptionPane.showMessageDialog(null, "Failed to save session");
+//				}
+//			}
+//		} else if (e.getSource() == btnAddQuestion) {
+//			// obtain question data from UI
+//			modified = true;
+//			ArrayList<String> answers = new ArrayList<String>(4);
+//			answers.add(ansA.getText());
+//			answers.add(ansB.getText());
+//			answers.add(ansC.getText());
+//			answers.add(ansD.getText());
+//			int answerCount = 0;
+//			// question must contain at least two non-empty answers to be valid
+//			boolean isValid = false;
+//			for (String ans : answers) {
+//				if (!ans.equals("")) {
+//					answerCount++;
+//					if (answerCount >= 2) {
+//						isValid = true;
+//						break;
+//					}
+//				}
+//			}
+//			if (!isValid) {
+//				JOptionPane.showMessageDialog(null, "Questions need at least 2 answers", "Invalid question",
+//						JOptionPane.ERROR_MESSAGE);
+//				return;
+//			}
+//			// only non-empty answers can be correct for the question to be valid
+//			// additionally, at least one answer must be correct
+//			isValid = false;
+//			boolean accepted[] = new boolean[] { aOK.isSelected(), bOK.isSelected(), cOK.isSelected(),
+//					dOK.isSelected() };
+//			for (int i = 0; i < 4; i++) {
+//				if (accepted[i]) {
+//					if (answers.get(i).equals("")) {
+//						isValid = false;
+//						break;
+//					} else {
+//						isValid = true;
+//					}
+//				}
+//			}
+//			if (!isValid) {
+//				JOptionPane.showMessageDialog(null, "Question either has no correct answers or accepts an empty answer",
+//						"Invalid question", JOptionPane.ERROR_MESSAGE);
+//				return;
+//			}
+//			try {
+//				// load image into question data and clear UI so next question can be entered
+//				BufferedImage img = loadedImage == null ? null : ImageIO.read(loadedImage);
+//				qlistModel.addQuestion(new Question(questionField.getText(), Integer.parseInt(timeField.getText()),
+//						Integer.parseInt(pointsField.getText()), answers, accepted, img));
+//				questionField.setText("");
+//				timeField.setText("");
+//				pointsField.setText("");
+//				ansA.setText("");
+//				ansB.setText("");
+//				ansC.setText("");
+//				ansD.setText("");
+//				aOK.setSelected(false);
+//				bOK.setSelected(false);
+//				cOK.setSelected(false);
+//				dOK.setSelected(false);
+//				loadImage(null);
+//			} catch (NumberFormatException | IOException e1) {
+//				e1.printStackTrace();
+//			}
+//		} else if (e.getSource() == btnRemoveQuestion) {
+//			removeSelectedQuestion();
+//		} else if (e.getSource() == btnEditQuestion) {
+//			// load question data into UI and remove from question list
+//			int row = questionList.getSelectedRow();
+//			if (row >= 0) {
+////				Question q = qlistModel.getObjects().get(row);
+////				ArrayList<String> answers = q.getAnswers();
+////				questionField.setText(q.getQ());
+////				ansA.setText(answers.get(0));
+////				ansB.setText(answers.get(1));
+////				ansC.setText(answers.get(2));
+////				ansD.setText(answers.get(3));
+////				timeField.setText(Integer.toString(q.getTimeLimit()));
+////				pointsField.setText(Integer.toString(q.getPoints()));
+////				aOK.setSelected(q.acceptAnswer(0));
+////				bOK.setSelected(q.acceptAnswer(1));
+////				cOK.setSelected(q.acceptAnswer(2));
+////				dOK.setSelected(q.acceptAnswer(3));
+////				removeSelectedQuestion();
+//			}
+//		} else if (e.getSource() == btnClearImage) {
+//			// remove image from question
+//			loadedImage = null;
+//			loadImage(null);
+//		} else if (e.getSource() == btnLoadImage) {
+//			// load an image from file
+//			if (jfc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+//				loadedImage = jfc.getSelectedFile();
+//				loadImage(loadedImage);
+//			}
+//		}
 	}
 	
 	/**

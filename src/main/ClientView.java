@@ -62,10 +62,10 @@ import javax.swing.JTextField;
 
 import backend.GameState;
 import backend.PlayerFeedback;
-import backend.Question;
 import backend.Updatable;
 import backend.Updater;
 import backend.View;
+import internals.question.Question;
 import net.MessageHandler;
 import net.MsgThread;
 import net.NetworkMessages;
@@ -101,7 +101,6 @@ public class ClientView extends JFrame {
 		private boolean isConnected = false;
 
 		private Question currentQuestion;
-		private String answerA, answerB, answerC, answerD;
 		private Image image;
 
 		private PlayerFeedback feedback;
@@ -112,14 +111,8 @@ public class ClientView extends JFrame {
 
 		private static final int BUTTON_HEIGHT = 100, BUTTON_MARGIN = 50, BUTTON_WIDTH = VIEW_WIDTH / 2 - BUTTON_MARGIN * 2;
 
-		private final Rectangle ansA = new Rectangle(BUTTON_MARGIN, VIEW_HEIGHT - 2 * (BUTTON_HEIGHT + BUTTON_MARGIN),
-				BUTTON_WIDTH, BUTTON_HEIGHT);
-		private final Rectangle ansB = new Rectangle(BUTTON_WIDTH + 2 * BUTTON_MARGIN,
-				VIEW_HEIGHT - 2 * (BUTTON_HEIGHT + BUTTON_MARGIN), BUTTON_WIDTH, BUTTON_HEIGHT);
-		private final Rectangle ansC = new Rectangle(BUTTON_MARGIN, VIEW_HEIGHT - (BUTTON_HEIGHT + BUTTON_MARGIN), BUTTON_WIDTH,
-				BUTTON_HEIGHT);
-		private final Rectangle ansD = new Rectangle(BUTTON_WIDTH + 2 * BUTTON_MARGIN,
-				VIEW_HEIGHT - (BUTTON_HEIGHT + BUTTON_MARGIN), BUTTON_WIDTH, BUTTON_HEIGHT);
+		private final JTextField answerField = new JTextField();
+		private final JLabel questionLabel = new JLabel();
 
 		public DrawingView() {
 			panel = new JPanel();
@@ -165,6 +158,38 @@ public class ClientView extends JFrame {
 				add(panel);
 			} else {
 				remove(panel);
+
+				panel = new JPanel();
+				panel.setBackground(Color.WHITE);
+				panel.setLayout(new GridLayout(0, 1));
+
+				JButton sendButton = new JButton("Send");
+
+				panel.add(new JLabel(""));
+				panel.add(questionLabel);
+				panel.add(new JLabel("Answer:"));
+				panel.add(answerField);
+				panel.add(sendButton);
+
+				sendButton.addActionListener(new ActionListener() {
+					public void actionPerformed(ActionEvent e) {
+						switch (currentState) {
+							case GAME_OVER:
+//								if (backToMainButton.contains(e.getPoint())) {
+//									closeClient();
+//									backToMain();
+//								}
+								break;
+							case WAITING_FOR_ANSWERS:
+								sendToServer(answerField.getText());
+								currentState = GameState.WAITING_FOR_OTHER_PLAYERS;
+								break;
+							default:
+								break;
+						}
+					}
+				});
+				add(panel);
 			}
 		}
 
@@ -195,6 +220,7 @@ public class ClientView extends JFrame {
 				panel.repaint();
 				return;
 			}
+
 			switch (currentState) {
 			// if game is over, offer a back button
 			case GAME_OVER:
@@ -206,40 +232,13 @@ public class ClientView extends JFrame {
 				if (currentQuestion == null) {
 					break;
 				}
-				g.drawString(currentQuestion.getQ(), 10, 20);
+				//g.drawString(currentQuestion.toString(), 10, 20);
+
+				questionLabel.setText(currentQuestion.toString());
 
 				// draw image for question if present
 				if (image != null) {
 					g.drawImage(image, 700, 20, null);
-				}
-
-				// draw each answer that exists
-				if (!answerA.equals("")) {
-					g.setColor(Color.RED);
-					drawRect(g, ansA, true);
-					g.setColor(Color.WHITE);
-					g.drawString(answerA, ansA.x + 10, ansA.y + 40);
-				}
-
-				if (!answerB.equals("")) {
-					g.setColor(Color.BLUE);
-					drawRect(g, ansB, true);
-					g.setColor(Color.WHITE);
-					g.drawString(answerB, ansB.x + 10, ansB.y + 40);
-				}
-
-				if (!answerC.equals("")) {
-					g.setColor(Color.GREEN);
-					drawRect(g, ansC, true);
-					g.setColor(Color.WHITE);
-					g.drawString(answerC, ansC.x + 10, ansC.y + 40);
-				}
-
-				if (!answerD.equals("")) {
-					g.setColor(Color.ORANGE);
-					drawRect(g, ansD, true);
-					g.setColor(Color.WHITE);
-					g.drawString(answerD, ansD.x + 10, ansD.y + 40);
 				}
 
 				break;
@@ -263,14 +262,7 @@ public class ClientView extends JFrame {
 				Question q = feedback.getQuestion();
 				g.drawString("Acceptable answers:", 40, 130);
 				int y = 150;
-				int i = 0;
-				for (String answer : q.getAnswers()) {
-					if (q.acceptAnswer(i)) {
-						g.drawString(answer, 60, y);
-						y += 30;
-					}
-					i++;
-				}
+                g.drawString(Double.toString(q.getAnswer()), 60, y);
 				break;
 			case WAITING_FOR_PLAYERS:
 				g.drawString("Waiting for game to start", 10, 20);
@@ -302,30 +294,7 @@ public class ClientView extends JFrame {
 
 		@Override
 		public void mouseReleased(MouseEvent e) {
-			switch (currentState) {
-			case GAME_OVER:
-				if (backToMainButton.contains(e.getPoint())) {
-					closeClient();
-					backToMain();
-				}
-				break;
-			case WAITING_FOR_ANSWERS:
-				if (!answerA.equals("") && ansA.contains(e.getPoint())) {
-					sendToServer("0");
-				} else if (!answerB.equals("") && ansB.contains(e.getPoint())) {
-					sendToServer("1");
-				} else if (!answerC.equals("") && ansC.contains(e.getPoint())) {
-					sendToServer("2");
-				} else if (!answerD.equals("") && ansD.contains(e.getPoint())) {
-					sendToServer("3");
-				} else {
-					break;
-				}
-				currentState = GameState.WAITING_FOR_OTHER_PLAYERS;
-				break;
-			default:
-				break;
-			}
+
 		}
 
 		private void startRunning() {
@@ -362,30 +331,11 @@ public class ClientView extends JFrame {
 			} else if (msg.equals(NetworkMessages.nextQ)) {
 				try {
 					currentQuestion = (Question) oin.readObject();
-					if (currentQuestion.questionHasImage()) {
-						ByteArrayInputStream bais = new ByteArrayInputStream(currentQuestion.getImageBytes());
-						image = ImageIO.read(bais);
-
-						double aspectRatio = image.getWidth(null) / image.getHeight(null);
-						if (image.getHeight(null) > VIEW_HEIGHT - 40 || image.getWidth(null) > MAX_IMAGE_WIDTH) {
-							if ((VIEW_HEIGHT - 40) * aspectRatio < MAX_IMAGE_WIDTH) {
-								image = image.getScaledInstance(-1, VIEW_HEIGHT - 40, BufferedImage.SCALE_DEFAULT);
-							} else {
-								image = image.getScaledInstance(MAX_IMAGE_WIDTH, -1, BufferedImage.SCALE_DEFAULT);
-							}
-						}
-						adaptSize(image.getWidth(null));
-					} else {
-						image = null;
-					}
+					image = null;
 				} catch (ClassNotFoundException | IOException e) {
 					e.printStackTrace();
 				}
-				ArrayList<String> answers = currentQuestion.getAnswers();
-				answerA = answers.get(0);
-				answerB = answers.get(1);
-				answerC = answers.get(2);
-				answerD = answers.get(3);
+				double answer = currentQuestion.getAnswer();
 				currentState = GameState.WAITING_FOR_ANSWERS;
 			} else if (msg.equals(NetworkMessages.timeup)) {
 				try {
